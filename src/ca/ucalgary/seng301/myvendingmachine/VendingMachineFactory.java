@@ -2,12 +2,18 @@ package ca.ucalgary.seng301.myvendingmachine;
 
 import java.io.FileNotFoundException;
 import java.io.FileReader;
+import java.lang.reflect.Array;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
+import ca.ucalgary.seng301.vendingmachine.Coin;
 import ca.ucalgary.seng301.vendingmachine.IVendingMachineFactory;
+import ca.ucalgary.seng301.vendingmachine.PopCan;
 import ca.ucalgary.seng301.vendingmachine.VendingMachineStoredContents;
+import ca.ucalgary.seng301.vendingmachine.hardware.CapacityExceededException;
 import ca.ucalgary.seng301.vendingmachine.hardware.DisabledException;
+import ca.ucalgary.seng301.vendingmachine.hardware.VendingMachine;
 import ca.ucalgary.seng301.vendingmachine.parser.ParseException;
 import ca.ucalgary.seng301.vendingmachine.parser.Parser;
 
@@ -429,7 +435,10 @@ import ca.ucalgary.seng301.vendingmachine.parser.Parser;
  */
 
 public class VendingMachineFactory implements IVendingMachineFactory {
-    public static void main(String[] args) throws ParseException, FileNotFoundException {
+    
+	VendingMachine vendingMachine;
+	
+	public static void main(String[] args) throws ParseException, FileNotFoundException {
 	// You MAY NOT modify this method except to list your own scripts, as noted
 	
 	int count = 0;
@@ -472,38 +481,90 @@ public class VendingMachineFactory implements IVendingMachineFactory {
 
     @Override
     public List<Object> extract() {
-	// TODO Replace this implementation
-	return new ArrayList<>();
+
+    	Object[] deliveryItems = vendingMachine.getDeliveryChute().removeItems();
+    	ArrayList<Object> extractionArray = new ArrayList<Object>(Arrays.asList(deliveryItems)); 
+    	return extractionArray;
+
     }
 
     @Override
-    public void insert(int value) throws DisabledException {
-	// TODO
+    public void insert(int value) throws DisabledException { 
+    	Coin paymentCoin = new Coin(value);
+    	try {
+			vendingMachine.getCoinReceptacle().acceptCoin(paymentCoin); //TODO: May be the wrong accept method
+		} catch (CapacityExceededException e) {
+			// TODO Auto-generated catch block 
+			//storeCoins()
+			e.printStackTrace();
+		}
     }
 
     @Override
-    public void press(int value) {
-	// TODO
+    public void press(int value) { 
+    	
+    	vendingMachine.getSelectionButton(value).press();
+	// TODO: Change algorithm 
+    	
     }
 
     @Override
-    public void construct(List<Integer> coinKinds, int selectionButtonCount, int coinRackCapacity, int popCanRackCapacity, int receptacleCapacity) {
-	// TODO
+    public void construct(List<Integer> coinKinds, int selectionButtonCount, int coinRackCapacity, int popCanRackCapacity, int receptacleCapacity) {    	
+    	
+    	//Convert List<Integer> to int array
+    	int[] coinKindList = new int[coinKinds.size()]; 
+    	for (int i = 0; i < coinKinds.size(); i++) { 
+    		coinKindList[i] = coinKinds.get(i);
+    	}
+    	
+    	//Construct the vending machine
+    	vendingMachine = new VendingMachine(coinKindList, selectionButtonCount, coinRackCapacity, popCanRackCapacity, receptacleCapacity);
     }
 
     @Override
     public void configure(List<String> popNames, List<Integer> popCosts) {
-	// TODO
+    	vendingMachine.configure(popNames, popCosts);
     }
 
     @Override
     public void load(List<Integer> coinCounts, List<Integer> popCanCounts) {
-	// TODO
+    	for (int i = 0; i < coinCounts.size(); i++) { 
+    		for (int j = 0; j < coinCounts.get(i); j++) { 
+    			Coin coin = new Coin(vendingMachine.getPopKindCost(i)); 
+    			vendingMachine.getCoinRack(i).loadWithoutEvents(coin);	//TODO: May be the wrong load event 
+    		}
+    	} 
+    	
+    	for (int i = 0; i < popCanCounts.size(); i++) { 
+    		for (int j = 0; j< popCanCounts.get(i); j++) { 
+    			PopCan popCan = new PopCan(vendingMachine.getPopKindName(i)); 
+    			try {
+					vendingMachine.getPopCanRack(i).addPop(popCan);
+				} catch (CapacityExceededException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				} catch (DisabledException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+    		}
+    	}
     }
 
     @Override
     public VendingMachineStoredContents unload() {
-	// TODO Replace this implementation
-	return new VendingMachineStoredContents();
+    	VendingMachineStoredContents vendingMachineStoredContents = new VendingMachineStoredContents(); 
+    	
+    	for (int i = 0; i < vendingMachine.getNumberOfCoinRacks(); i++) { 
+    		vendingMachineStoredContents.unusedCoinsForChange.add(vendingMachine.getCoinRack(i).unloadWithoutEvents());
+    	} 
+    	
+    	for (int i = 0; i < vendingMachine.getNumberOfPopCanRacks(); i ++) { 
+    		vendingMachineStoredContents.unsoldPopCans.add(vendingMachine.getPopCanRack(i).unloadWithoutEvents()); 
+    	} 
+    	
+    	vendingMachine.getStorageBin().unloadWithoutEvents();
+    	
+    	return vendingMachineStoredContents;
     }
 }
