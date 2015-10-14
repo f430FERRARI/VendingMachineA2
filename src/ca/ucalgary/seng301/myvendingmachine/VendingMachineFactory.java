@@ -5,7 +5,11 @@ import java.io.FileReader;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 import ca.ucalgary.seng301.vendingmachine.Coin;
 import ca.ucalgary.seng301.vendingmachine.IVendingMachineFactory;
@@ -13,6 +17,7 @@ import ca.ucalgary.seng301.vendingmachine.PopCan;
 import ca.ucalgary.seng301.vendingmachine.VendingMachineStoredContents;
 import ca.ucalgary.seng301.vendingmachine.hardware.CapacityExceededException;
 import ca.ucalgary.seng301.vendingmachine.hardware.DisabledException;
+import ca.ucalgary.seng301.vendingmachine.hardware.EmptyException;
 import ca.ucalgary.seng301.vendingmachine.hardware.VendingMachine;
 import ca.ucalgary.seng301.vendingmachine.parser.ParseException;
 import ca.ucalgary.seng301.vendingmachine.parser.Parser;
@@ -437,6 +442,7 @@ import ca.ucalgary.seng301.vendingmachine.parser.Parser;
 public class VendingMachineFactory implements IVendingMachineFactory {
     
 	VendingMachine vendingMachine;
+	private int valueOfEnteredCoins = 0;
 	
 	public static void main(String[] args) throws ParseException, FileNotFoundException {
 	// You MAY NOT modify this method except to list your own scripts, as noted
@@ -481,32 +487,58 @@ public class VendingMachineFactory implements IVendingMachineFactory {
 
     @Override
     public List<Object> extract() {
-
     	Object[] deliveryItems = vendingMachine.getDeliveryChute().removeItems();
     	ArrayList<Object> extractionArray = new ArrayList<Object>(Arrays.asList(deliveryItems)); 
     	return extractionArray;
-
     }
 
     @Override
     public void insert(int value) throws DisabledException { 
+    	valueOfEnteredCoins +=value;
     	Coin paymentCoin = new Coin(value);
-    	try {
-			vendingMachine.getCoinReceptacle().acceptCoin(paymentCoin); //TODO: May be the wrong accept method
-		} catch (CapacityExceededException e) {
-			// TODO Auto-generated catch block 
-			//storeCoins()
-			e.printStackTrace();
-		}
+    	vendingMachine.getCoinSlot().addCoin(paymentCoin);; //TODO: May be the wrong accept method
     }
 
     @Override
-    public void press(int value) { 
+    public void press(int value) {     	
     	
     	vendingMachine.getSelectionButton(value).press();
-	// TODO: Change algorithm 
+    	if (vendingMachine.getPopKindCost(value) >= valueOfEnteredCoins) {
+	    	try {
+				vendingMachine.getCoinReceptacle().storeCoins(); 
+				try {
+					vendingMachine.getPopCanRack(value).dispensePop();
+				} catch (EmptyException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				} 
+			} catch (CapacityExceededException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (DisabledException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}   
+    		//deliverChange(valueOfEnteredCoins, vendingMachine.getPopKindCost(value));
+    	}
+    } 
+    
+    /*
+    public void deliverChange(int cost, int entered) {      														
     	
+    	int changeDue = entered - cost;
+    	//Start at highest coin value and obtain change from coin kinds of descending value
+    	for (int i = vendingMachine.getNumberOfCoinRacks() - 1; i >= 0; i--) { 							 
+    		while (!vendingMachine.getCoinRack(i). && changeDue >= vendingMachine.getCoinKindForRack(i)) {  	//Loop while there are still coins and the amount is more than or equal to the coin value
+    			changeDue -= vendingMachine.coinDenominations.get(i);  
+    			coinKind.remove(0); 																//Shrinks the coin kind array by first element
+    			Coin coinForChange = new Coin(vendingMachine.coinDenominations.get(i)); 
+    			vendingMachine.change.add(coinForChange);											//Add change to change array
+    		} 
+    	} 
+    	valueOfEnteredCoins = 0; 													//Clear value of current payments
     }
+    */
 
     @Override
     public void construct(List<Integer> coinKinds, int selectionButtonCount, int coinRackCapacity, int popCanRackCapacity, int receptacleCapacity) {    	
@@ -528,6 +560,7 @@ public class VendingMachineFactory implements IVendingMachineFactory {
 
     @Override
     public void load(List<Integer> coinCounts, List<Integer> popCanCounts) {
+    	
     	for (int i = 0; i < coinCounts.size(); i++) { 
     		for (int j = 0; j < coinCounts.get(i); j++) { 
     			Coin coin = new Coin(vendingMachine.getPopKindCost(i)); 
@@ -563,8 +596,7 @@ public class VendingMachineFactory implements IVendingMachineFactory {
     		vendingMachineStoredContents.unsoldPopCans.add(vendingMachine.getPopCanRack(i).unloadWithoutEvents()); 
     	} 
     	
-    	vendingMachine.getStorageBin().unloadWithoutEvents();
-    	
+    	vendingMachine.getStorageBin().unloadWithoutEvents();	
     	return vendingMachineStoredContents;
-    }
-}
+    } 
+} 
