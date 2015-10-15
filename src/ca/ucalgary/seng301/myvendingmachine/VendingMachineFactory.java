@@ -522,12 +522,23 @@ public class VendingMachineFactory implements IVendingMachineFactory {
     } 
     
     private void deliverChange(int cost, int entered) {      														    	
-    	int changeDue = entered - cost; 
-    	for (int i = vendingMachine.getNumberOfCoinRacks()-1; i >= 0; i--) { 
-    		while (vendingMachine.getCoinRack(i).size() > 0 && changeDue >= vendingMachine.getCoinKindForRack(i)) { 
-    			changeDue -= vendingMachine.getCoinKindForRack(i); 
+    	//Calculate change 
+    	int changeDue = entered - cost;  
+    	
+    	//Create key value pairs for the coin racks and keep in sorted order
+    	Map<Integer, Integer> coinKinds = new TreeMap<Integer, Integer>();
+    	for (int i = 0; i < vendingMachine.getNumberOfCoinRacks(); i++) { 
+    		coinKinds.put(vendingMachine.getCoinKindForRack(i), i);
+    	}  
+    	
+    	//Create sorted list of coin kinds, retrieve their indices, and add change to the dispenser
+    	ArrayList<Integer> keys = new ArrayList<Integer>(coinKinds.keySet()); 
+    	for (int i = keys.size() - 1; i >= 0; i--) {  
+    		int coinKindIndex = coinKinds.get(keys.get(i)); 						
+    		while (vendingMachine.getCoinRack(coinKindIndex).size() > 0 && changeDue >= vendingMachine.getCoinKindForRack(coinKindIndex)) { 
+    			changeDue -= vendingMachine.getCoinKindForRack(coinKindIndex); 
     			try {
-					vendingMachine.getCoinRack(i).releaseCoin();
+					vendingMachine.getCoinRack(coinKindIndex).releaseCoin();
 				} catch (CapacityExceededException | EmptyException | DisabledException e) {
 					e.printStackTrace(); 
 					System.err.println();
@@ -556,6 +567,8 @@ public class VendingMachineFactory implements IVendingMachineFactory {
 
     @Override
     public void load(List<Integer> coinCounts, List<Integer> popCanCounts) {   	
+    	
+    	//Load each coin rack with the appropriate coin kind
     	for (int i = 0; i < coinCounts.size(); i++) { 
     		for (int j = 0; j < coinCounts.get(i); j++) { 
     			Coin coin = new Coin(vendingMachine.getCoinKindForRack(i)); 
@@ -568,6 +581,7 @@ public class VendingMachineFactory implements IVendingMachineFactory {
     		}
     	} 
     	
+    	//Load each pop rack with the appropriate pop can 
     	for (int i = 0; i < popCanCounts.size(); i++) { 
     		for (int j = 0; j< popCanCounts.get(i); j++) { 
     			PopCan popCan = new PopCan(vendingMachine.getPopKindName(i)); 
